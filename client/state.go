@@ -17,9 +17,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"log"
 	"time"
 
 	"github.com/golang/protobuf/ptypes/duration"
+	"google.golang.org/genproto/googleapis/rpc/errdetails"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	v1 "github.com/dapr/go-sdk/dapr/proto/common/v1"
 	pb "github.com/dapr/go-sdk/dapr/proto/runtime/v1"
@@ -387,7 +391,13 @@ func (c *GRPCClient) GetStateWithConsistency(ctx context.Context, storeName, key
 
 	result, err := c.protoClient.GetState(c.withAuthToken(ctx), req)
 	if err != nil {
-		return nil, fmt.Errorf("error getting state: %w", err)
+		fe, ok := status.FromError(err)
+		if !ok {
+			log.Fatalf("it was not ok!\n")
+		}
+		printErrorStatus(fe.Err())
+		// return nil, fmt.Errorf("error getting state: %w", err)
+		return nil, fe.Err()
 	}
 
 	return &StateItem{
@@ -396,6 +406,31 @@ func (c *GRPCClient) GetStateWithConsistency(ctx context.Context, storeName, key
 		Value:    result.Data,
 		Metadata: result.Metadata,
 	}, nil
+}
+
+func printErrorStatus(est error) {
+	errStatus := status.Convert(est)
+	if errStatus.Code() != codes.OK {
+		fmt.Printf("state - ERROR with details:\n  Code: %s(%d)\n  Message: %s\n", errStatus.Code().String(), errStatus.Code(), errStatus.Message())
+		for _, detail := range errStatus.Details() {
+			switch dt := detail.(type) {
+			case *errdetails.ErrorInfo:
+				edt := detail.(*errdetails.ErrorInfo)
+				fmt.Printf("Error Info:\n Reason: %s\n Domain: %s\n\n", edt.Reason, edt.Domain)
+				fmt.Printf(" Metadata: \n")
+				for k := range edt.Metadata {
+					fmt.Printf("\t %s ==> %s\n", k, edt.Metadata[k])
+				}
+			case *errdetails.ResourceInfo:
+				edt := detail.(*errdetails.ResourceInfo)
+				fmt.Printf("Resource Info:\n ResourceType: %s\n ResourceName: %s Owner: %s, Description: %s\n\n", edt.ResourceType, edt.ResourceName, edt.Owner, edt.Description)
+			default:
+				fmt.Printf("errStatus detail is of type: %T %#v\n", dt, dt)
+			}
+		}
+	} else {
+		fmt.Printf("status code is OK\n")
+	}
 }
 
 // QueryStateAlpha1 runs a query against state store.

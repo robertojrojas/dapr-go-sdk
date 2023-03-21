@@ -16,6 +16,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"time"
@@ -57,10 +58,11 @@ func main() {
 	switch kingpin.Parse() {
 
 	case "get":
+		time.Sleep(30 * time.Second)
 		fmt.Printf("Getting order\n")
 		item, err := client.GetState(ctx, stateStoreName, "order", nil)
 		if err != nil {
-			fmt.Printf("Failed to get state: %v\n", err)
+			log.Fatalf("Failed to get state: %v\n", err)
 		}
 		if len(item.Value) > 0 {
 			fmt.Printf("Order ID %s\n", item.Value)
