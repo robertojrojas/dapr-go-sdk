@@ -20,6 +20,7 @@ import (
 	"log"
 	"time"
 
+	customerrors "github.com/dapr/kit/pkg/proto/customerrors/v1"
 	"github.com/golang/protobuf/ptypes/duration"
 	"google.golang.org/genproto/googleapis/rpc/errdetails"
 	"google.golang.org/grpc/codes"
@@ -395,9 +396,10 @@ func (c *GRPCClient) GetStateWithConsistency(ctx context.Context, storeName, key
 		if !ok {
 			log.Fatalf("it was not ok!\n")
 		}
-		printErrorStatus(fe.Err())
-		// return nil, fmt.Errorf("error getting state: %w", err)
+		printErrorStatus(err)
 		return nil, fe.Err()
+
+		// return nil, fmt.Errorf("error getting state: %w", err)
 	}
 
 	return &StateItem{
@@ -411,12 +413,19 @@ func (c *GRPCClient) GetStateWithConsistency(ctx context.Context, storeName, key
 func printErrorStatus(est error) {
 	errStatus := status.Convert(est)
 	if errStatus.Code() != codes.OK {
-		fmt.Printf("state - ERROR with details:\n  Code: %s(%d)\n  Message: %s\n", errStatus.Code().String(), errStatus.Code(), errStatus.Message())
+		fmt.Printf("Status Error:\n  Code: %s(%d)\n  Message: %s\n", errStatus.Code().String(), errStatus.Code(), errStatus.Message())
 		for _, detail := range errStatus.Details() {
 			switch dt := detail.(type) {
 			case *errdetails.ErrorInfo:
 				edt := detail.(*errdetails.ErrorInfo)
 				fmt.Printf("Error Info:\n Reason: %s\n Domain: %s\n\n", edt.Reason, edt.Domain)
+				fmt.Printf(" Metadata: \n")
+				for k := range edt.Metadata {
+					fmt.Printf("\t %s ==> %s\n", k, edt.Metadata[k])
+				}
+			case *customerrors.DaprKitErrorInfo:
+				edt := detail.(*customerrors.DaprKitErrorInfo)
+				fmt.Printf("DaprKitErrorInfo:\n Reason: %s\n Domain: %s\n\n", edt.Reason, edt.Domain)
 				fmt.Printf(" Metadata: \n")
 				for k := range edt.Metadata {
 					fmt.Printf("\t %s ==> %s\n", k, edt.Metadata[k])

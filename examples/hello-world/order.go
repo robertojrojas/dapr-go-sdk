@@ -58,7 +58,7 @@ func main() {
 	switch kingpin.Parse() {
 
 	case "get":
-		time.Sleep(30 * time.Second)
+		time.Sleep(10 * time.Second)
 		fmt.Printf("Getting order\n")
 		item, err := client.GetState(ctx, stateStoreName, "order", nil)
 		if err != nil {
